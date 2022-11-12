@@ -115,30 +115,27 @@ func (m *Model) Prev() {
 	}
 }
 
-// TODO: call this on tea.WindowSizeMsg
 func (m *Model) initLists(width, height int) {
 	defaultList := list.New([]list.Item{}, list.NewDefaultDelegate(), width/divisor, height/divisor)
 	defaultList.SetShowHelp(false)
 	m.lists = []list.Model{defaultList, defaultList, defaultList}
 
-	// Init todos
+	// Init To Do
 	m.lists[todo].Title = "To Do"
 	m.lists[todo].SetItems([]list.Item{
 		Task{status: todo, title: "buy milk", description: "strawberry milk"},
 		Task{status: todo, title: "eat sushi", description: "negitoro roll, miso soup, rice"},
 		Task{status: todo, title: "fold laundry", description: "or wear wrinkly t-shirts"},
 	})
-
 	// Init in progress
 	m.lists[inProgress].Title = "In Progress"
 	m.lists[inProgress].SetItems([]list.Item{
-		Task{status: todo, title: "write code", description: "don't worry , it's Go"},
+		Task{status: inProgress, title: "write code", description: "don't worry, it's Go"},
 	})
-
 	// Init done
 	m.lists[done].Title = "Done"
 	m.lists[done].SetItems([]list.Item{
-		Task{status: todo, title: "stay cool", description: "as a cucumber"},
+		Task{status: done, title: "stay cool", description: "as a cucumber"},
 	})
 }
 
@@ -171,9 +168,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.MoveToNext
 		case "n":
 			models[model] = m
+			models[form] = NewForm(m.focused)
 			return models[form].Update(nil)
-
+		case "d":
+			return m, m.DeleteCurrent
 		}
+	case Task:
+		task := msg
+		return m, m.lists[task.status].InsertItem(len(m.lists[task.status].Items()), task)
 	}
 
 	var cmd tea.Cmd
