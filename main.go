@@ -54,10 +54,14 @@ func main() {
 		{Title: "Name", Width: 10},
 		{Title: "Color", Width: 10},
 		{Title: "Rarity", Width: 10},
+		{Title: "Type", Width: 10},
+		{Title: "Cost", Width: 10},
+		{Title: "Text", Width: 50},
 	}
 
-	rows := []table.Row{
-		{cardData["Name"], cardData["Color"], cardData["Rarity"]},
+	rows := []table.Row{}
+	for _, card := range cardData {
+		rows = append(rows, table.Row{card["Name"], card["Color"], card["Rarity"], card["Type"], card["Cost"], card["Text"]})
 	}
 
 	t := table.New(
