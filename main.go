@@ -29,7 +29,7 @@ type keyMap struct {
 	Down   key.Binding
 	Left   key.Binding
 	Right  key.Binding
-	Help   key.Binding
+	Filter key.Binding
 	Escape key.Binding
 }
 
@@ -50,9 +50,9 @@ var keys = keyMap{
 		key.WithKeys("right", "l"),
 		key.WithHelp("→/l", "move right"),
 	),
-	Help: key.NewBinding(
-		key.WithKeys("?"),
-		key.WithHelp("?", "filter on card name"),
+	Filter: key.NewBinding(
+		key.WithKeys("/"),
+		key.WithHelp("/", "filter on card name"),
 	),
 	Escape: key.NewBinding(
 		key.WithKeys("esc"),
@@ -63,7 +63,7 @@ var keys = keyMap{
 // ShortHelp returns keybindings to be shown in the mini help view. It's part
 // of the key.Map interface.
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Help, k.Escape}
+	return []key.Binding{k.Filter, k.Escape}
 }
 
 // FullHelp returns keybindings for the expanded help view. It's part of the
@@ -71,7 +71,7 @@ func (k keyMap) ShortHelp() []key.Binding {
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Left, k.Right}, // first column
-		{k.Help, k.Escape},              // second column
+		{k.Filter, k.Escape},            // second column
 	}
 }
 
@@ -118,7 +118,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "q", "ctrl+c":
 			return m, tea.Quit
-		case "?":
+		case "/":
 			if m.view == "table" {
 				m.view = "filter"
 			}
@@ -126,18 +126,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "enter":
 			i, ok := m.list.SelectedItem().(item)
-			if m.view != "table" && ok {
+			if m.view == "list" && ok {
 				m.class = i.color
-				cardData := cards.GetData()
-				rows := []table.Row{}
-				for _, card := range cardData {
-					if card["Color"] == i.color && strings.Contains(card["Name"], m.filter.Value()) {
-						rows = append(rows, table.Row{card["Name"], card["Color"], card["Rarity"], card["Type"], card["Cost"], card["Text"]})
-					}
-				}
-				m.table.SetRows(rows)
-				m.view = "table"
+				m.filter, cmd = m.filter.Update("")
 			}
+			cardData := cards.GetData()
+			rows := []table.Row{}
+			for _, card := range cardData {
+				if card["Color"] == m.class && strings.Contains(strings.ToLower(card["Name"]), strings.ToLower(m.filter.Value())) {
+					rows = append(rows, table.Row{card["Name"], card["Color"], card["Rarity"], card["Type"], card["Cost"], card["Text"]})
+				}
+			}
+			m.table.SetRows(rows)
+			m.view = "table"
 		}
 	}
 	if m.view == "filter" {
@@ -151,7 +152,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.view == "table" {
-		return baseStyle.Render(m.table.View()) + "\n" + m.help.View(m.keys)
+		var filterText = ""
+		if m.filter.Value() != "" {
+			filterText = fmt.Sprintf("Filtering by %s\n", m.filter.Value())
+		}
+		return filterText + baseStyle.Render(m.table.View()) + "\n" + m.help.View(m.keys)
 	} else if m.view == "filter" {
 		return fmt.Sprintf(
 			"What card do you want to search for?\n\n%s\n\n%s",
