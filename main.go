@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"stscli/cards"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -35,10 +37,11 @@ const (
 )
 
 type model struct {
-	table table.Model
-	list  list.Model
-	class string
-	view  string
+	table  table.Model
+	filter textinput.Model
+	list   list.Model
+	class  string
+	view   string
 }
 
 func (m model) Init() tea.Cmd { return nil }
@@ -49,18 +52,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {
 		case "esc":
-			m.view = ""
-			return m, cmd
+			if m.view == "table" {
+				m.view = "list"
+				return m, cmd
+			} else if m.view == "filter" {
+				m.view = "table"
+				return m, cmd
+			}
 		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "?":
+			if m.view == "table" {
+				m.view = "filter"
+			}
+			return m, cmd
+
 		case "enter":
 			i, ok := m.list.SelectedItem().(item)
-			if ok {
+			if m.view != "table" && ok {
 				m.class = i.color
 				cardData := cards.GetData()
 				rows := []table.Row{}
 				for _, card := range cardData {
-					if card["Color"] == i.color {
+					if card["Color"] == i.color && strings.Contains(card["Name"], m.filter.Value()) {
 						rows = append(rows, table.Row{card["Name"], card["Color"], card["Rarity"], card["Type"], card["Cost"], card["Text"]})
 					}
 				}
@@ -68,6 +82,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.view = "table"
 			}
 		}
+	}
+	if m.view == "filter" {
+		m.filter, cmd = m.filter.Update(msg)
 	}
 	m.table, cmd = m.table.Update(msg)
 	m.list, cmd = m.list.Update(msg)
@@ -77,7 +94,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.view == "table" {
+		fmt.Sprintln(m.filter.Value())
 		return baseStyle.Render(m.table.View()) + "\n"
+	} else if m.view == "filter" {
+		return fmt.Sprintf(
+			"What card do you want to search for?\n\n%s\n\n%s",
+			m.filter.View(),
+			"(esc to quit)",
+		) + "\n"
 	}
 	return "\n" + m.list.View()
 }
@@ -123,7 +147,14 @@ func main() {
 		Bold(false)
 	t.SetStyles(s)
 
-	m := model{table: t, list: l, view: view}
+	ti := textinput.New()
+	ti.Placeholder = "Strike"
+	ti.Focus()
+	ti.CharLimit = 156
+	ti.Width = 20
+
+	m := model{table: t, list: l, filter: ti, view: view}
+
 	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
