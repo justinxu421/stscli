@@ -6,6 +6,8 @@ import (
 	"strings"
 	"stscli/cards"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -19,6 +21,59 @@ var (
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("240"))
 )
+
+// keyMap defines a set of keybindings. To work for help it must satisfy
+// key.Map. It could also very easily be a map[string]key.Binding.
+type keyMap struct {
+	Up     key.Binding
+	Down   key.Binding
+	Left   key.Binding
+	Right  key.Binding
+	Help   key.Binding
+	Escape key.Binding
+}
+
+var keys = keyMap{
+	Up: key.NewBinding(
+		key.WithKeys("up", "k"),
+		key.WithHelp("↑/k", "move up"),
+	),
+	Down: key.NewBinding(
+		key.WithKeys("down", "j"),
+		key.WithHelp("↓/j", "move down"),
+	),
+	Left: key.NewBinding(
+		key.WithKeys("left", "h"),
+		key.WithHelp("←/h", "move left"),
+	),
+	Right: key.NewBinding(
+		key.WithKeys("right", "l"),
+		key.WithHelp("→/l", "move right"),
+	),
+	Help: key.NewBinding(
+		key.WithKeys("?"),
+		key.WithHelp("?", "filter on card name"),
+	),
+	Escape: key.NewBinding(
+		key.WithKeys("esc"),
+		key.WithHelp("esc", "return to class selection"),
+	),
+}
+
+// ShortHelp returns keybindings to be shown in the mini help view. It's part
+// of the key.Map interface.
+func (k keyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Help, k.Escape}
+}
+
+// FullHelp returns keybindings for the expanded help view. It's part of the
+// key.Map interface.
+func (k keyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down, k.Left, k.Right}, // first column
+		{k.Help, k.Escape},              // second column
+	}
+}
 
 type item struct {
 	title, desc, color string
@@ -41,6 +96,8 @@ type model struct {
 	filter textinput.Model
 	list   list.Model
 	class  string
+	keys   keyMap
+	help   help.Model
 	view   string
 }
 
@@ -94,8 +151,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.view == "table" {
-		fmt.Sprintln(m.filter.Value())
-		return baseStyle.Render(m.table.View()) + "\n"
+		return baseStyle.Render(m.table.View()) + "\n" + m.help.View(m.keys)
 	} else if m.view == "filter" {
 		return fmt.Sprintf(
 			"What card do you want to search for?\n\n%s\n\n%s",
@@ -153,7 +209,7 @@ func main() {
 	ti.CharLimit = 156
 	ti.Width = 20
 
-	m := model{table: t, list: l, filter: ti, view: view}
+	m := model{table: t, list: l, filter: ti, view: view, keys: keys, help: help.New()}
 
 	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fmt.Println("Error running program:", err)
