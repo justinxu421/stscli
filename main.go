@@ -83,7 +83,6 @@ func (m model) View() string {
 }
 
 func main() {
-	cardData := cards.GetData()
 	columns := []table.Column{
 		{Title: "Name", Width: 10},
 		{Title: "Color", Width: 10},
@@ -93,10 +92,6 @@ func main() {
 		{Title: "Text", Width: 50},
 	}
 
-	rows := []table.Row{}
-	for _, card := range cardData {
-		rows = append(rows, table.Row{card["Name"], card["Color"], card["Rarity"], card["Type"], card["Cost"], card["Text"]})
-	}
 	view := "list"
 	items := []list.Item{
 		item{title: "Colorless", desc: "Colorless card", color: Colorless},
